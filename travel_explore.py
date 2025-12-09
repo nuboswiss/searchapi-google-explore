@@ -123,6 +123,36 @@ def build_flight_link(
     return f"{base_url}?q={quote(query)}&curr={currency}&px={adults}"
 
 
+def build_airline_link(
+    departure_id: str,
+    dest_airport: str,
+    outbound_date: str,
+    return_date: str,
+    airline_name: str,
+    adults: int = 1,
+    currency: str = "CHF"
+) -> str:
+    """
+    Build a Google Flights search URL filtered by airline.
+
+    Args:
+        departure_id: Departure airport IATA code
+        dest_airport: Destination airport IATA code
+        outbound_date: Outbound date (YYYY-MM-DD)
+        return_date: Return date (YYYY-MM-DD)
+        airline_name: Name of the airline to filter by
+        adults: Number of adults
+        currency: Currency code
+
+    Returns:
+        Google Flights URL filtered by airline
+    """
+    from urllib.parse import quote
+    base_url = "https://www.google.com/travel/flights"
+    query = f"flights from {departure_id} to {dest_airport} on {outbound_date} returning {return_date} on {airline_name}"
+    return f"{base_url}?q={quote(query)}&curr={currency}&px={adults}"
+
+
 def format_destination(
     dest: dict,
     rank: int,
@@ -163,8 +193,11 @@ def format_destination(
 
     # Build flight link
     flight_link = ""
+    airline_link = ""
     if airport_code and outbound != "N/A" and return_date != "N/A":
         flight_link = build_flight_link(departure_id, airport_code, outbound, return_date, adults, currency)
+        if airline and airline != "Unknown":
+            airline_link = build_airline_link(departure_id, airport_code, outbound, return_date, airline, adults, currency)
 
     return f"""
 {rank}. {name}, {country}
@@ -172,6 +205,7 @@ def format_destination(
    Dates: {outbound} -> {return_date}
    Avg accommodation: {cost_str}
    Book: {flight_link}
+   Airline: {airline_link}
 """
 
 
