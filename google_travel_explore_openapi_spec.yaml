@@ -1,0 +1,424 @@
+openapi: 3.0.0
+info:
+  title: Google Travel Explore API
+  description: |
+    The Google Travel Explore API helps you discover travel destinations based on your preferences. It provides curated destination suggestions with pricing, flight information, and accommodation costs for various interests and time periods.
+
+    **Cross-linking**: 
+    - Use the destination's kgmid with Google Hotels API to search for accommodations
+    - Use flight details with Google Flights API for detailed flight searches
+    - Departure_id accepts 3-letter IATA codes (e.g., "JFK") or kgmid with /m/ prefix (e.g., "/m/02_286" for New York)
+  version: 1.0.0
+servers:
+  - url: https://www.searchapi.io/api/v1
+paths:
+  /search:
+    get:
+      summary: Google Travel Explore Search
+      security:
+        - ApiKeyAuth: []
+        - ApiKeyQuery: []
+      parameters:
+        - name: engine
+          in: query
+          required: true
+          description: Engine to use for the search
+          schema:
+            type: string
+            enum: ["google_travel_explore"]
+        - name: departure_id
+          in: query
+          required: true
+          description: Departure location as 3-letter IATA code or kgmid starting with '/m/'
+          schema:
+            type: string
+        - name: arrival_id
+          in: query
+          required: false
+          description: 'Arrival location filter: bounding box [[lat,long],[lat,long]] or kgmid starting with ''/m/'''
+          schema:
+            type: string
+            default: "/m/02j71"
+        - name: time_period
+          in: query
+          required: false
+          description: Travel time period as predefined option, specific date (YYYY-MM-DD), or date range (YYYY-MM-DD..YYYY-MM-DD)
+          schema:
+            type: string
+            default: "one_week_trip_in_the_next_six_months"
+        - name: travel_mode
+          in: query
+          required: false
+          description: Filter results by travel mode
+          schema:
+            type: string
+            default: "all"
+            enum: ["all", "flights_only"]
+        - name: adults
+          in: query
+          required: false
+          description: Number of adult passengers
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 9
+            default: 1
+        - name: children
+          in: query
+          required: false
+          description: Number of child passengers
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 9
+            default: 0
+        - name: infants_in_seat
+          in: query
+          required: false
+          description: Number of infants with own seat
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 9
+            default: 0
+        - name: infants_on_lap
+          in: query
+          required: false
+          description: Number of infants on lap
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 9
+            default: 0
+        - name: travel_class
+          in: query
+          required: false
+          description: Travel class preference
+          schema:
+            type: string
+            default: "economy"
+            enum: ["economy", "premium_economy", "business", "first_class"]
+        - name: interests
+          in: query
+          required: false
+          description: Filter destinations by interest
+          schema:
+            type: string
+            default: "popular"
+            enum: ["popular", "outdoors", "beaches", "museums", "history", "skiing"]
+        - name: stops
+          in: query
+          required: false
+          description: Filter by number of stops
+          schema:
+            type: string
+            default: "any"
+            enum: ["any", "nonstop", "one_stop_or_fewer", "two_stops_or_fewer"]
+        - name: max_price
+          in: query
+          required: false
+          description: Maximum flight price
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 2147483647
+        - name: max_flight_duration
+          in: query
+          required: false
+          description: Maximum flight duration in minutes
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 2147483647
+        - name: carry_on_bags
+          in: query
+          required: false
+          description: Number of carry-on bags
+          schema:
+            type: integer
+            minimum: 0
+        - name: included_airlines
+          in: query
+          required: false
+          description: Comma-separated airline alliances to include
+          schema:
+            type: string
+            pattern: ^(ONEWORLD|SKYTEAM|STAR_ALLIANCE)(,(ONEWORLD|SKYTEAM|STAR_ALLIANCE))*$
+        - name: currency
+          in: query
+          required: false
+          description: Currency for prices
+          schema:
+            type: string
+            default: "USD"
+            enum: ["ALL", "DZD", "ARS", "AMD", "AWG", "AUD", "AZN", "BSD", "BHD", "BYN", "BMD", "BAM", "BRL", "GBP", "BGN", "CAD", "XPF", "CLP", "CNY", "COP", "CRC", "CUP", "CZK", "DKK", "DOP", "EGP", "EUR", "GEL", "HKD", "HUF", "ISK", "INR", "IDR", "IRR", "ILS", "JMD", "JPY", "JOD", "KZT", "KWD", "LBP", "MKD", "MYR", "MXN", "MDL", "MAD", "TWD", "NZD", "NOK", "OMR", "PKR", "PAB", "PEN", "PHP", "PLN", "QAR", "RON", "RUB", "SAR", "RSD", "SGD", "ZAR", "KRW", "SEK", "CHF", "THB", "TRY", "UAH", "AED", "USD", "VND"]
+        - name: hl
+          in: query
+          required: false
+          description: Language for the results
+          schema:
+            type: string
+            default: "en-US"
+            enum: ["af", "bs", "ca", "cs", "da", "de", "et", "en-GB", "en-US", "es", "es-419", "eu", "fil", "fr", "gl", "hr", "id", "is", "it", "sw", "lv", "lt", "hu", "ms", "nl", "no", "pl", "pt-BR", "pt-PT", "ro", "sq", "sk", "sl", "sr-Latn", "fi", "sv", "vi", "tr", "el", "bg", "mk", "mn", "ru", "sr", "uk", "ka", "iw", "ur", "ar", "fa", "am", "ne", "mr", "hi", "bn", "pa", "gu", "ta", "te", "kn", "ml", "si", "th", "lo", "km", "ko", "ja", "zh-CN", "zh-TW"]
+        - name: gl
+          in: query
+          required: false
+          description: Country of the search
+          schema:
+            type: string
+            default: "US"
+            enum: ["AF", "AL", "DZ", "AS", "AD", "AO", "AI", "AG", "AR", "AM", "AU", "AT", "AZ", "BS", "BH", "BD", "BY", "BE", "BZ", "BJ", "BT", "BO", "BA", "BW", "BR", "VG", "BN", "BG", "BF", "BI", "KH", "CM", "CA", "CV", "CF", "TD", "CL", "CN", "CO", "CG", "CD", "CK", "CR", "CI", "HR", "CU", "CY", "CZ", "DK", "DJ", "DM", "DO", "EC", "EG", "SV", "EE", "ET", "FJ", "FI", "FR", "GA", "GM", "GE", "DE", "GH", "GI", "GR", "GL", "GT", "GG", "GY", "HT", "HN", "HK", "HU", "IS", "IN", "ID", "IR", "IQ", "IE", "IM", "IL", "IT", "JM", "JP", "JE", "JO", "KZ", "KE", "KI", "KW", "KG", "LA", "LV", "LB", "LS", "LY", "LI", "LT", "LU", "MG", "MW", "MY", "MV", "ML", "MT", "MU", "MX", "FM", "MD", "MN", "ME", "MS", "MA", "MZ", "MM", "NA", "NR", "NP", "NL", "NZ", "NI", "NE", "NG", "NU", "MK", "NO", "OM", "PK", "PS", "PA", "PG", "PY", "PE", "PH", "PN", "PL", "PT", "PR", "QA", "RO", "RU", "RW", "WS", "SM", "ST", "SA", "SN", "RS", "SC", "SL", "SG", "SK", "SI", "SB", "SO", "ZA", "KR", "ES", "LK", "SH", "VC", "SR", "SE", "CH", "TW", "TJ", "TZ", "TH", "TL", "TG", "TO", "TT", "TN", "TR", "TM", "UG", "UA", "AE", "GB", "US", "UY", "UZ", "VU", "VE", "VN", "ZM", "ZW"]
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResponse'
+        '400':
+          description: Validation Error. There is an issue with query parameters, such as missing required parameters or invalid values.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Authentication Error. The API key is missing or invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate Limit Exceeded. The number of allowed requests has been exceeded. Consider upgrading your plan or waiting for the limit to reset.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server Error. Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Timeout. We could not retrieve results in 90 seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: 'Use Bearer authentication. Format: "Bearer YOUR_API_KEY"'
+    ApiKeyQuery:
+      type: apiKey
+      in: query
+      name: api_key
+      description: Pass API key as query parameter
+  schemas:
+    SearchResponse:
+      type: object
+      properties:
+        search_metadata:
+          $ref: '#/components/schemas/SearchMetadata'
+        search_parameters:
+          $ref: '#/components/schemas/SearchParameters'
+        destinations:
+          type: array
+          description: List of travel destination suggestions
+          items:
+            $ref: '#/components/schemas/Destination'
+        error:
+          type: string
+          description: Error message if no results found
+    SearchMetadata:
+      type: object
+      required: [id, status, created_at]
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the search request
+        status:
+          type: string
+          description: Status of the search request
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the search was created
+        request_time_taken:
+          type: number
+          description: Time taken to make the request in seconds
+        parsing_time_taken:
+          type: number
+          description: Time taken to parse the results in seconds
+        total_time_taken:
+          type: number
+          description: Total time taken for the search in seconds
+        request_url:
+          type: string
+          description: Google Travel Explore URL for this search
+        html_url:
+          type: string
+          description: URL to view HTML results
+        json_url:
+          type: string
+          description: URL to view JSON results
+    SearchParameters:
+      type: object
+      properties:
+        engine:
+          type: string
+          description: Engine used for the search
+        departure_id:
+          type: string
+          description: Departure location identifier
+        arrival_id:
+          type: string
+          description: Arrival location identifier or bounding box
+        time_period:
+          type: string
+          description: Travel time period
+        travel_mode:
+          type: string
+          description: Travel mode filter
+        adults:
+          type: string
+          description: Number of adult passengers
+        children:
+          type: string
+          description: Number of child passengers
+        infants_in_seat:
+          type: string
+          description: Number of infants with own seat
+        infants_on_lap:
+          type: string
+          description: Number of infants on lap
+        travel_class:
+          type: string
+          description: Travel class
+        interests:
+          type: string
+          description: Interest filter
+        stops:
+          type: string
+          description: Stop preference
+        max_price:
+          type: string
+          description: Maximum price filter
+        currency:
+          type: string
+          description: Currency code
+        hl:
+          type: string
+          description: Language code
+        gl:
+          type: string
+          description: Country code
+        max_flight_duration:
+          type: string
+          description: Maximum flight duration in minutes
+        carry_on_bags:
+          type: string
+          description: Number of carry-on bags
+        included_airlines:
+          type: string
+          description: Included airline alliances
+    Destination:
+      type: object
+      required: [name, kgmid, primary_airport, country, coordinates, image, outbound_date, return_date]
+      properties:
+        name:
+          type: string
+          description: Name of the destination
+        kgmid:
+          type: string
+          description: Google Knowledge Graph MID for the destination
+        primary_airport:
+          type: string
+          description: Primary airport serving the destination
+        country:
+          type: string
+          description: Country of the destination
+        coordinates:
+          type: array
+          description: Geographic coordinates [latitude, longitude]
+          items:
+            type: number
+        distance:
+          type: string
+          description: Distance from departure location
+        avg_cost_per_night:
+          type: integer
+          description: Average accommodation cost per night
+        driving_duration:
+          type: string
+          description: Driving duration in human-readable format
+        driving_duration_minutes:
+          type: integer
+          description: Driving duration in minutes
+        outbound_date:
+          type: string
+          description: Suggested outbound travel date
+        alternative_outbound_date:
+          type: string
+          description: Alternative outbound date if available
+        return_date:
+          type: string
+          description: Suggested return travel date
+        image:
+          type: string
+          description: URL of destination image
+        flight:
+          $ref: '#/components/schemas/Flight'
+    Flight:
+      type: object
+      required: [airport_code, departure_city_kgmid, price, stops, flight_duration, flight_duration_minutes, airline_code, airline_name]
+      properties:
+        city:
+          type: string
+          description: Destination city name
+        city_kgmid:
+          type: string
+          description: Google Knowledge Graph MID for the city
+        airport_code:
+          type: string
+          description: Airport code for the flight
+        price:
+          type: integer
+          description: Flight price in specified currency
+        stops:
+          type: integer
+          description: Number of stops
+        flight_duration:
+          type: string
+          description: Flight duration in human-readable format
+        flight_duration_minutes:
+          type: integer
+          description: Flight duration in minutes
+        driving_duration:
+          type: string
+          description: Driving duration from airport in human-readable format
+        driving_duration_minutes:
+          type: integer
+          description: Driving duration from airport in minutes
+        airline_code:
+          type: string
+          description: Airline IATA code
+        airline_name:
+          type: string
+          description: Airline name
+        departure_city_kgmid:
+          type: string
+          description: Google Knowledge Graph MID for departure city
+        search_origin_kgmid:
+          type: string
+          description: Google Knowledge Graph MID for search origin
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          description: Error message describing what went wrong
