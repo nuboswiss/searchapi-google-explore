@@ -95,7 +95,41 @@ def sort_by_cheapest(destinations: list) -> list:
     return sorted(destinations, key=get_price)
 
 
-def format_destination(dest: dict, rank: int, currency: str = "CHF") -> str:
+def build_flight_link(
+    departure_id: str,
+    dest_airport: str,
+    outbound_date: str,
+    return_date: str,
+    adults: int = 1,
+    currency: str = "CHF"
+) -> str:
+    """
+    Build a Google Flights search URL.
+
+    Args:
+        departure_id: Departure airport IATA code
+        dest_airport: Destination airport IATA code
+        outbound_date: Outbound date (YYYY-MM-DD)
+        return_date: Return date (YYYY-MM-DD)
+        adults: Number of adults
+        currency: Currency code
+
+    Returns:
+        Google Flights URL
+    """
+    from urllib.parse import quote
+    base_url = "https://www.google.com/travel/flights"
+    query = f"flights from {departure_id} to {dest_airport} on {outbound_date} returning {return_date}"
+    return f"{base_url}?q={quote(query)}&curr={currency}&px={adults}"
+
+
+def format_destination(
+    dest: dict,
+    rank: int,
+    currency: str = "CHF",
+    departure_id: str = "ZRH",
+    adults: int = 1
+) -> str:
     """
     Format a destination for display.
 
@@ -103,6 +137,8 @@ def format_destination(dest: dict, rank: int, currency: str = "CHF") -> str:
         dest: Destination object from API
         rank: Rank number for display
         currency: Currency symbol to display
+        departure_id: Departure airport IATA code
+        adults: Number of adults
 
     Returns:
         Formatted string representation
@@ -115,6 +151,7 @@ def format_destination(dest: dict, rank: int, currency: str = "CHF") -> str:
     airline = flight.get("airline_name", "Unknown")
     stops = flight.get("stops", "N/A")
     duration = flight.get("flight_duration", "N/A")
+    airport_code = flight.get("airport_code", "")
 
     outbound = dest.get("outbound_date", "N/A")
     return_date = dest.get("return_date", "N/A")
@@ -124,11 +161,17 @@ def format_destination(dest: dict, rank: int, currency: str = "CHF") -> str:
 
     stop_text = "direct" if stops == 0 else f"{stops} stop(s)"
 
+    # Build flight link
+    flight_link = ""
+    if airport_code and outbound != "N/A" and return_date != "N/A":
+        flight_link = build_flight_link(departure_id, airport_code, outbound, return_date, adults, currency)
+
     return f"""
 {rank}. {name}, {country}
-   ✈️  Flight: {price} {currency} ({airline}, {stop_text}, {duration})
-   📅 Dates: {outbound} → {return_date}
-   🏨 Avg accommodation: {cost_str}
+   Flight: {price} {currency} ({airline}, {stop_text}, {duration})
+   Dates: {outbound} -> {return_date}
+   Avg accommodation: {cost_str}
+   Book: {flight_link}
 """
 
 
@@ -224,7 +267,7 @@ def main():
         print("=" * 60)
 
         for rank, dest in enumerate(display_destinations, 1):
-            print(format_destination(dest, rank, args.currency))
+            print(format_destination(dest, rank, args.currency, args.departure, args.adults))
 
         print("=" * 60)
         print(f"\n💡 Tip: Use --help to see all available options")
