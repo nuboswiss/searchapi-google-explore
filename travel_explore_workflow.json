@@ -27,11 +27,11 @@
             },
             {
               "name": "currency",
-              "value": "={{ $json.currency || 'CHF' }}"
+              "value": "={{ $json.currency || 'USD' }}"
             },
             {
               "name": "gl",
-              "value": "={{ $json.gl || 'CH' }}"
+              "value": "={{ $json.gl || 'US' }}"
             },
             {
               "name": "hl",
@@ -44,6 +44,10 @@
             {
               "name": "stops",
               "value": "={{ $json.stops || 'any' }}"
+            },
+            {
+              "name": "arrival_id",
+              "value": "={{ $json.arrival_id || '' }}"
             }
           ],
           "number": [
@@ -53,11 +57,11 @@
             },
             {
               "name": "max_price",
-              "value": "={{ $json.max_price || '' }}"
+              "value": "={{ $json.max_price || 500 }}"
             },
             {
               "name": "limit",
-              "value": "={{ $json.limit || 20 }}"
+              "value": "={{ $json.limit || 10 }}"
             }
           ]
         },
@@ -117,6 +121,10 @@
             {
               "name": "stops",
               "value": "={{ $json.stops }}"
+            },
+            {
+              "name": "arrival_id",
+              "value": "={{ $json.arrival_id }}"
             }
           ]
         },
@@ -136,33 +144,90 @@
     },
     {
       "parameters": {
-        "jsCode": "// Extract destinations from the API response\nconst destinations = items[0].json.destinations || [];\n\n// Sort destinations by flight price (cheapest first)\nconst sortedDestinations = destinations.sort((a, b) => {\n  const priceA = a.flight?.price ?? Infinity;\n  const priceB = b.flight?.price ?? Infinity;\n  return priceA - priceB;\n});\n\n// Return sorted destinations as individual items\nreturn sortedDestinations.map(dest => ({ json: dest }));"
+        "jsCode": "// Extract destinations from the API response\nconst destinations = items[0].json.destinations || [];\n\n// Filter out destinations without flight data\nconst validDestinations = destinations.filter(dest => dest.flight && dest.flight.price);\n\n// Return as individual items for further processing\nreturn validDestinations.map(dest => ({ json: dest }));"
       },
-      "id": "sort-by-price",
-      "name": "Sort by Cheapest Price",
+      "id": "extract-destinations",
+      "name": "Extract Destinations",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [900, 300]
     },
     {
       "parameters": {
-        "maxItems": "={{ $('Set Default Parameters').item.json.limit || 20 }}"
+        "sortFieldsUi": {
+          "sortField": [
+            {
+              "fieldName": "flight.price",
+              "order": "ascending"
+            }
+          ]
+        },
+        "options": {}
       },
-      "id": "limit-results",
-      "name": "Limit Results",
-      "type": "n8n-nodes-base.limit",
+      "id": "sort-by-price",
+      "name": "Sort by Price",
+      "type": "n8n-nodes-base.sort",
       "typeVersion": 1,
       "position": [1120, 300]
     },
     {
       "parameters": {
-        "jsCode": "// Get the currency from the parameters\nconst currency = $('Set Default Parameters').first().json.currency || 'CHF';\n\n// Format each destination with rank\nreturn items.map((item, index) => {\n  const dest = item.json;\n  const rank = index + 1;\n  \n  const name = dest.name || 'Unknown';\n  const country = dest.country || 'Unknown';\n  const flight = dest.flight || {};\n  \n  const price = flight.price ?? 'N/A';\n  const airline = flight.airline_name || 'Unknown';\n  const stops = flight.stops;\n  const duration = flight.flight_duration || 'N/A';\n  \n  const outbound = dest.outbound_date || 'N/A';\n  const returnDate = dest.return_date || 'N/A';\n  \n  const avgCostNight = dest.avg_cost_per_night;\n  const costStr = avgCostNight ? `${avgCostNight} ${currency}/night` : 'N/A';\n  \n  const stopText = stops === 0 ? 'direct' : `${stops} stop(s)`;\n  \n  return {\n    json: {\n      rank,\n      destination: `${name}, ${country}`,\n      flight_price: price,\n      flight_price_formatted: `${price} ${currency}`,\n      airline,\n      stops: stopText,\n      duration,\n      outbound_date: outbound,\n      return_date: returnDate,\n      avg_accommodation_cost: costStr,\n      // Keep original data for reference\n      raw: dest\n    }\n  };\n});"
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "price-filter",
+              "leftValue": "={{ $json.flight.price }}",
+              "rightValue": "={{ $('Set Default Parameters').item.json.max_price }}",
+              "operator": {
+                "type": "number",
+                "operation": "lte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
       },
-      "id": "format-output",
-      "name": "Format Output",
-      "type": "n8n-nodes-base.code",
+      "id": "filter-by-max-price",
+      "name": "Filter by Max Price",
+      "type": "n8n-nodes-base.filter",
       "typeVersion": 2,
       "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "maxItems": "={{ $('Set Default Parameters').item.json.limit || 10 }}"
+      },
+      "id": "limit-results",
+      "name": "Limit Results",
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [1560, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get the currency from the parameters\nconst params = $('Set Default Parameters').first().json;\nconst currency = params.currency || 'USD';\n\n// Format each destination simply\nconst cheapFlights = items.map((item, index) => {\n  const dest = item.json;\n  const flight = dest.flight || {};\n  \n  const stops = flight.stops === 0 ? 'Direct' : `${flight.stops} stop${flight.stops > 1 ? 's' : ''}`;\n  \n  return {\n    rank: index + 1,\n    destination: dest.name,\n    country: dest.country,\n    price: flight.price,\n    price_display: `${currency} ${flight.price}`,\n    airline: flight.airline_name,\n    duration: flight.flight_duration,\n    stops: stops,\n    departure_date: dest.outbound_date,\n    return_date: dest.return_date,\n    hotel_per_night: dest.avg_cost_per_night ? `${currency} ${dest.avg_cost_per_night}` : null,\n    airport: flight.airport_code\n  };\n});\n\nreturn [{ json: { cheap_flights: cheapFlights } }];"
+      },
+      "id": "format-simple",
+      "name": "Format Simple Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1780, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Create a summary of cheap flights\nconst params = $('Set Default Parameters').first().json;\nconst currency = params.currency || 'USD';\nconst data = items[0].json;\nconst flights = data.cheap_flights || [];\n\n// Build summary\nconst summary = {\n  title: `Top ${flights.length} Cheapest Flights from ${params.departure_id}`,\n  filters: {\n    max_price: `${currency} ${params.max_price}`,\n    travel_class: params.travel_class,\n    stops: params.stops\n  },\n  results: flights.map(f => ({\n    rank: f.rank,\n    route: `${params.departure_id} -> ${f.destination} (${f.country})`,\n    price: f.price_display,\n    details: `${f.airline} | ${f.duration} | ${f.stops}`,\n    dates: `${f.departure_date} to ${f.return_date}`,\n    hotel: f.hotel_per_night ? `~${f.hotel_per_night}/night` : 'N/A'\n  })),\n  cheapest: flights.length > 0 ? {\n    destination: flights[0].destination,\n    price: flights[0].price_display,\n    savings_vs_average: null\n  } : null\n};\n\n// Calculate average and savings\nif (flights.length > 1) {\n  const avgPrice = flights.reduce((sum, f) => sum + f.price, 0) / flights.length;\n  const savings = Math.round(avgPrice - flights[0].price);\n  summary.cheapest.savings_vs_average = `${currency} ${savings} below average`;\n}\n\nreturn [{ json: summary }];"
+      },
+      "id": "create-summary",
+      "name": "Create Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2000, 300]
     }
   ],
   "connections": {
@@ -192,14 +257,36 @@
       "main": [
         [
           {
-            "node": "Sort by Cheapest Price",
+            "node": "Extract Destinations",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Sort by Cheapest Price": {
+    "Extract Destinations": {
+      "main": [
+        [
+          {
+            "node": "Sort by Price",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sort by Price": {
+      "main": [
+        [
+          {
+            "node": "Filter by Max Price",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter by Max Price": {
       "main": [
         [
           {
@@ -214,7 +301,18 @@
       "main": [
         [
           {
-            "node": "Format Output",
+            "node": "Format Simple Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Simple Output": {
+      "main": [
+        [
+          {
+            "node": "Create Summary",
             "type": "main",
             "index": 0
           }
@@ -229,5 +327,5 @@
   "tags": [],
   "triggerCount": 0,
   "updatedAt": "2025-12-09T00:00:00.000Z",
-  "versionId": "1"
+  "versionId": "2"
 }
