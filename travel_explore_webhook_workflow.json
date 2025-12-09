@@ -1,0 +1,252 @@
+{
+  "name": "Travel Explore - SearchAPI (Webhook)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "travel-explore",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "travel-explore-webhook"
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "departure_id",
+              "value": "={{ $json.body.departure_id || 'ZRH' }}"
+            },
+            {
+              "name": "time_period",
+              "value": "={{ $json.body.time_period || 'one_week_trip_in_the_next_six_months' }}"
+            },
+            {
+              "name": "interests",
+              "value": "={{ $json.body.interests || 'popular' }}"
+            },
+            {
+              "name": "currency",
+              "value": "={{ $json.body.currency || 'CHF' }}"
+            },
+            {
+              "name": "gl",
+              "value": "={{ $json.body.gl || 'CH' }}"
+            },
+            {
+              "name": "hl",
+              "value": "={{ $json.body.hl || 'en-US' }}"
+            },
+            {
+              "name": "travel_class",
+              "value": "={{ $json.body.travel_class || 'economy' }}"
+            },
+            {
+              "name": "stops",
+              "value": "={{ $json.body.stops || 'any' }}"
+            }
+          ],
+          "number": [
+            {
+              "name": "adults",
+              "value": "={{ $json.body.adults || 1 }}"
+            },
+            {
+              "name": "max_price",
+              "value": "={{ $json.body.max_price || '' }}"
+            },
+            {
+              "name": "limit",
+              "value": "={{ $json.body.limit || 20 }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-defaults",
+      "name": "Set Default Parameters",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://www.searchapi.io/api/v1/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "engine",
+              "value": "google_travel_explore"
+            },
+            {
+              "name": "departure_id",
+              "value": "={{ $json.departure_id }}"
+            },
+            {
+              "name": "adults",
+              "value": "={{ $json.adults }}"
+            },
+            {
+              "name": "time_period",
+              "value": "={{ $json.time_period }}"
+            },
+            {
+              "name": "interests",
+              "value": "={{ $json.interests }}"
+            },
+            {
+              "name": "currency",
+              "value": "={{ $json.currency }}"
+            },
+            {
+              "name": "gl",
+              "value": "={{ $json.gl }}"
+            },
+            {
+              "name": "hl",
+              "value": "={{ $json.hl }}"
+            },
+            {
+              "name": "travel_class",
+              "value": "={{ $json.travel_class }}"
+            },
+            {
+              "name": "stops",
+              "value": "={{ $json.stops }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http-request",
+      "name": "SearchAPI Request",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "searchapi-auth",
+          "name": "SearchAPI Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract destinations from the API response\nconst destinations = items[0].json.destinations || [];\n\n// Get parameters from earlier node\nconst params = $('Set Default Parameters').first().json;\nconst currency = params.currency || 'CHF';\nconst limit = params.limit || 20;\n\n// Sort destinations by flight price (cheapest first)\nconst sortedDestinations = destinations.sort((a, b) => {\n  const priceA = a.flight?.price ?? Infinity;\n  const priceB = b.flight?.price ?? Infinity;\n  return priceA - priceB;\n});\n\n// Limit results\nconst limitedDestinations = sortedDestinations.slice(0, limit);\n\n// Format each destination\nconst formattedDestinations = limitedDestinations.map((dest, index) => {\n  const rank = index + 1;\n  const name = dest.name || 'Unknown';\n  const country = dest.country || 'Unknown';\n  const flight = dest.flight || {};\n  \n  const price = flight.price ?? null;\n  const airline = flight.airline_name || 'Unknown';\n  const stops = flight.stops;\n  const duration = flight.flight_duration || null;\n  \n  const stopText = stops === 0 ? 'direct' : stops !== undefined ? `${stops} stop(s)` : null;\n  \n  return {\n    rank,\n    destination: name,\n    country,\n    flight: {\n      price,\n      price_formatted: price !== null ? `${price} ${currency}` : null,\n      airline,\n      stops: stopText,\n      duration\n    },\n    dates: {\n      outbound: dest.outbound_date || null,\n      return: dest.return_date || null\n    },\n    accommodation: {\n      avg_cost_per_night: dest.avg_cost_per_night || null,\n      formatted: dest.avg_cost_per_night ? `${dest.avg_cost_per_night} ${currency}/night` : null\n    }\n  };\n});\n\n// Return as a single response object\nreturn [{\n  json: {\n    success: true,\n    total_found: destinations.length,\n    returned: formattedDestinations.length,\n    currency,\n    departure: params.departure_id,\n    destinations: formattedDestinations\n  }\n}];"
+      },
+      "id": "process-results",
+      "name": "Process & Format Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-webhook",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: false, error: $json.error?.message || 'An error occurred', code: $json.error?.code || 500 } }}",
+        "options": {
+          "responseCode": "={{ $json.error?.code || 500 }}",
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        }
+      },
+      "id": "error-response",
+      "name": "Error Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1120, 500]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Set Default Parameters",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Default Parameters": {
+      "main": [
+        [
+          {
+            "node": "SearchAPI Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SearchAPI Request": {
+      "main": [
+        [
+          {
+            "node": "Process & Format Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process & Format Results": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": ""
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2025-12-09T00:00:00.000Z",
+  "versionId": "1"
+}

@@ -1,0 +1,233 @@
+{
+  "name": "Travel Explore - SearchAPI Google Travel",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "trigger-manual",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "departure_id",
+              "value": "={{ $json.departure_id || 'ZRH' }}"
+            },
+            {
+              "name": "time_period",
+              "value": "={{ $json.time_period || 'one_week_trip_in_the_next_six_months' }}"
+            },
+            {
+              "name": "interests",
+              "value": "={{ $json.interests || 'popular' }}"
+            },
+            {
+              "name": "currency",
+              "value": "={{ $json.currency || 'CHF' }}"
+            },
+            {
+              "name": "gl",
+              "value": "={{ $json.gl || 'CH' }}"
+            },
+            {
+              "name": "hl",
+              "value": "={{ $json.hl || 'en-US' }}"
+            },
+            {
+              "name": "travel_class",
+              "value": "={{ $json.travel_class || 'economy' }}"
+            },
+            {
+              "name": "stops",
+              "value": "={{ $json.stops || 'any' }}"
+            }
+          ],
+          "number": [
+            {
+              "name": "adults",
+              "value": "={{ $json.adults || 1 }}"
+            },
+            {
+              "name": "max_price",
+              "value": "={{ $json.max_price || '' }}"
+            },
+            {
+              "name": "limit",
+              "value": "={{ $json.limit || 20 }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-defaults",
+      "name": "Set Default Parameters",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://www.searchapi.io/api/v1/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "engine",
+              "value": "google_travel_explore"
+            },
+            {
+              "name": "departure_id",
+              "value": "={{ $json.departure_id }}"
+            },
+            {
+              "name": "adults",
+              "value": "={{ $json.adults }}"
+            },
+            {
+              "name": "time_period",
+              "value": "={{ $json.time_period }}"
+            },
+            {
+              "name": "interests",
+              "value": "={{ $json.interests }}"
+            },
+            {
+              "name": "currency",
+              "value": "={{ $json.currency }}"
+            },
+            {
+              "name": "gl",
+              "value": "={{ $json.gl }}"
+            },
+            {
+              "name": "hl",
+              "value": "={{ $json.hl }}"
+            },
+            {
+              "name": "travel_class",
+              "value": "={{ $json.travel_class }}"
+            },
+            {
+              "name": "stops",
+              "value": "={{ $json.stops }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http-request",
+      "name": "SearchAPI Request",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "searchapi-auth",
+          "name": "SearchAPI Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract destinations from the API response\nconst destinations = items[0].json.destinations || [];\n\n// Sort destinations by flight price (cheapest first)\nconst sortedDestinations = destinations.sort((a, b) => {\n  const priceA = a.flight?.price ?? Infinity;\n  const priceB = b.flight?.price ?? Infinity;\n  return priceA - priceB;\n});\n\n// Return sorted destinations as individual items\nreturn sortedDestinations.map(dest => ({ json: dest }));"
+      },
+      "id": "sort-by-price",
+      "name": "Sort by Cheapest Price",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "maxItems": "={{ $('Set Default Parameters').item.json.limit || 20 }}"
+      },
+      "id": "limit-results",
+      "name": "Limit Results",
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get the currency from the parameters\nconst currency = $('Set Default Parameters').first().json.currency || 'CHF';\n\n// Format each destination with rank\nreturn items.map((item, index) => {\n  const dest = item.json;\n  const rank = index + 1;\n  \n  const name = dest.name || 'Unknown';\n  const country = dest.country || 'Unknown';\n  const flight = dest.flight || {};\n  \n  const price = flight.price ?? 'N/A';\n  const airline = flight.airline_name || 'Unknown';\n  const stops = flight.stops;\n  const duration = flight.flight_duration || 'N/A';\n  \n  const outbound = dest.outbound_date || 'N/A';\n  const returnDate = dest.return_date || 'N/A';\n  \n  const avgCostNight = dest.avg_cost_per_night;\n  const costStr = avgCostNight ? `${avgCostNight} ${currency}/night` : 'N/A';\n  \n  const stopText = stops === 0 ? 'direct' : `${stops} stop(s)`;\n  \n  return {\n    json: {\n      rank,\n      destination: `${name}, ${country}`,\n      flight_price: price,\n      flight_price_formatted: `${price} ${currency}`,\n      airline,\n      stops: stopText,\n      duration,\n      outbound_date: outbound,\n      return_date: returnDate,\n      avg_accommodation_cost: costStr,\n      // Keep original data for reference\n      raw: dest\n    }\n  };\n});"
+      },
+      "id": "format-output",
+      "name": "Format Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 300]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Set Default Parameters",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Default Parameters": {
+      "main": [
+        [
+          {
+            "node": "SearchAPI Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SearchAPI Request": {
+      "main": [
+        [
+          {
+            "node": "Sort by Cheapest Price",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sort by Cheapest Price": {
+      "main": [
+        [
+          {
+            "node": "Limit Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limit Results": {
+      "main": [
+        [
+          {
+            "node": "Format Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2025-12-09T00:00:00.000Z",
+  "versionId": "1"
+}
