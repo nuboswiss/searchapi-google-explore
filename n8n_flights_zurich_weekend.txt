@@ -1,0 +1,348 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a7b0f9ab-4def-4b80-9d2d-d2bfb5d2eb91",
+              "name": "departure_id ",
+              "value": "ZRH",
+              "type": "string"
+            },
+            {
+              "id": "630e0508-7bd6-45ce-ae7c-fbaca5d08719",
+              "name": "max_price",
+              "value": 500,
+              "type": "number"
+            },
+            {
+              "id": "962c6720-2bf3-4b4f-ab46-22b29af89ef5",
+              "name": "limit",
+              "value": 30,
+              "type": "number"
+            },
+            {
+              "id": "49588818-aa64-439f-9561-8fd4033ec885",
+              "name": "currency",
+              "value": "CHF",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "338fb5b1-6c8f-42c3-9550-746bdfd4cf47",
+      "name": "Set Default Parameters",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        208,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://www.searchapi.io/api/v1/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "engine",
+              "value": "google_travel_explore"
+            },
+            {
+              "name": "departure_id",
+              "value": "={{ $json['departure_id '] }}"
+            },
+            {
+              "name": "adults",
+              "value": "={{ $json.adults }}"
+            },
+            {
+              "name": "time_period",
+              "value": "={{ $json.time_period }}"
+            },
+            {
+              "name": "interests",
+              "value": "={{ $json.interests }}"
+            },
+            {
+              "name": "currency",
+              "value": "={{ $json.currency }}"
+            },
+            {
+              "name": "gl",
+              "value": "={{ $json.gl }}"
+            },
+            {
+              "name": "hl",
+              "value": "={{ $json.hl }}"
+            },
+            {
+              "name": "travel_class",
+              "value": "={{ $json.travel_class }}"
+            },
+            {
+              "name": "stops",
+              "value": "={{ $json.stops }}"
+            },
+            {
+              "name": "time_period",
+              "value": "weekend_trip_in_the_next_six_months"
+            },
+            {
+              "name": "currency",
+              "value": "CHF"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "2d121028-e661-45fb-b94b-9653946e29f3",
+      "name": "SearchAPI Request",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        432,
+        -160
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "t9HcsfspuMYrRYb2",
+          "name": "Header Auth account"
+        },
+        "httpBearerAuth": {
+          "id": "08MRJXoMqwMaymd8",
+          "name": "Bearer Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract destinations from the API response\nconst destinations = items[0].json.destinations || [];\n\n// Filter out destinations without flight data\nconst validDestinations = destinations.filter(dest => dest.flight && dest.flight.price);\n\n// Return as individual items for further processing\nreturn validDestinations.map(dest => ({ json: dest }));"
+      },
+      "id": "6f8dfa3a-3448-42b1-b4c7-965064026359",
+      "name": "Extract Destinations1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        656,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "sortFieldsUi": {
+          "sortField": [
+            {
+              "fieldName": "flight.price"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "58ebb6de-8bda-4ec9-9a94-305a62cb98d7",
+      "name": "Sort by Price2",
+      "type": "n8n-nodes-base.sort",
+      "typeVersion": 1,
+      "position": [
+        880,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "price-filter",
+              "leftValue": "={{ $json.flight.price }}",
+              "rightValue": "={{ $('Set Default Parameters').item.json.max_price }}",
+              "operator": {
+                "type": "number",
+                "operation": "lte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "943823d4-bbb4-4a4a-b989-1c464a97800f",
+      "name": "Filter by Max Price2",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [
+        1104,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "maxItems": "={{ $('Set Default Parameters').item.json.limit || 10 }}"
+      },
+      "id": "7db6c214-4877-4c1d-831d-9d629edcf123",
+      "name": "Limit Results2",
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        1328,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get the currency from the parameters\nconst params = $('Set Default Parameters').first().json;\nconst currency = params.currency || 'USD';\nconst departureId = params.departure_id || 'ZRH';\nconst adults = params.adults || 1;\n\n// Helper to build Google Flights URL\nfunction buildFlightLink(origin, destAirport, outboundDate, returnDate, numAdults) {\n  const baseUrl = 'https://www.google.com/travel/flights';\n  const query = `flights from ${origin} to ${destAirport} on ${outboundDate} returning ${returnDate}`;\n  return `${baseUrl}?q=${encodeURIComponent(query)}&curr=${currency}&px=${numAdults}`;\n}\n\n// Helper to build Google Flights URL filtered by airline\nfunction buildAirlineLink(origin, destAirport, outboundDate, returnDate, airlineName, numAdults) {\n  const baseUrl = 'https://www.google.com/travel/flights';\n  const query = `flights from ${origin} to ${destAirport} on ${outboundDate} returning ${returnDate} on ${airlineName}`;\n  return `${baseUrl}?q=${encodeURIComponent(query)}&curr=${currency}&px=${numAdults}`;\n}\n\n// Format each destination simply\nconst cheapFlights = items.map((item, index) => {\n  const dest = item.json;\n  const flight = dest.flight || {};\n  \n  const stops = flight.stops === 0 ? 'Direct' : `${flight.stops} stop${flight.stops > 1 ? 's' : ''}`;\n  const flightLink = buildFlightLink(departureId, flight.airport_code, dest.outbound_date, dest.return_date, adults);\n  const airlineLink = flight.airline_name ? buildAirlineLink(departureId, flight.airport_code, dest.outbound_date, dest.return_date, flight.airline_name, adults) : null;\n  \n  return {\n    rank: index + 1,\n    destination: dest.name,\n    country: dest.country,\n    price: flight.price,\n    price_display: `${currency} ${flight.price}`,\n    airline: flight.airline_name,\n    duration: flight.flight_duration,\n    stops: stops,\n    departure_date: dest.outbound_date,\n    return_date: dest.return_date,\n    hotel_per_night: dest.avg_cost_per_night ? `${currency} ${dest.avg_cost_per_night}` : null,\n    airport: flight.airport_code,\n    flight_link: flightLink,\n    airline_link: airlineLink\n  };\n});\n\nreturn [{ json: { cheap_flights: cheapFlights } }];"
+      },
+      "id": "2162283c-166d-4086-b522-16029949f500",
+      "name": "Format Simple Output2",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1552,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Create a summary of cheap flights\nconst params = $('Set Default Parameters').first().json;\nconst currency = params.currency || 'USD';\nconst departureId = params.departure_id || 'ZRH';\nconst data = items[0].json;\nconst flights = data.cheap_flights || [];\n\n// Build summary\nconst summary = {\n  title: `Top ${flights.length} Cheapest Flights from ${departureId}`,\n  filters: {\n    max_price: `${currency} ${params.max_price}`,\n    travel_class: params.travel_class,\n    stops: params.stops\n  },\n  results: flights.map(f => ({\n    rank: f.rank,\n    route: `${departureId} -> ${f.destination} (${f.country})`,\n    price: f.price_display,\n    details: `${f.airline} | ${f.duration} | ${f.stops}`,\n    dates: `${f.departure_date} to ${f.return_date}`,\n    hotel: f.hotel_per_night ? `~${f.hotel_per_night}/night` : 'N/A',\n    flight_link: f.flight_link,\n    airline_link: f.airline_link\n  })),\n  cheapest: flights.length > 0 ? {\n    destination: flights[0].destination,\n    price: flights[0].price_display,\n    savings_vs_average: null,\n    flight_link: flights[0].flight_link,\n    airline_link: flights[0].airline_link\n  } : null\n};\n\n// Calculate average and savings\nif (flights.length > 1) {\n  const avgPrice = flights.reduce((sum, f) => sum + f.price, 0) / flights.length;\n  const savings = Math.round(avgPrice - flights[0].price);\n  summary.cheapest.savings_vs_average = `${currency} ${savings} below average`;\n}\n\nreturn [{ json: summary }];"
+      },
+      "id": "da7ea642-1491-42f8-97da-0cdb86343877",
+      "name": "Create Summary2",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1776,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 12
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -48,
+        -160
+      ],
+      "id": "5bd5976c-e231-4558-ac99-37c277fa6b9f",
+      "name": "Schedule Trigger"
+    }
+  ],
+  "connections": {
+    "Set Default Parameters": {
+      "main": [
+        [
+          {
+            "node": "SearchAPI Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SearchAPI Request": {
+      "main": [
+        [
+          {
+            "node": "Extract Destinations1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Destinations1": {
+      "main": [
+        [
+          {
+            "node": "Sort by Price2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sort by Price2": {
+      "main": [
+        [
+          {
+            "node": "Filter by Max Price2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter by Max Price2": {
+      "main": [
+        [
+          {
+            "node": "Limit Results2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limit Results2": {
+      "main": [
+        [
+          {
+            "node": "Format Simple Output2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Simple Output2": {
+      "main": [
+        [
+          {
+            "node": "Create Summary2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Summary2": {
+      "main": [
+        []
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Set Default Parameters",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "768b718e22226215783a2e86ba9e4f09691e4ac6cb8c347792e87caf39206259"
+  }
+}
